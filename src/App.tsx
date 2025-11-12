@@ -8,6 +8,8 @@ import { TodoList } from './components/TodoList';
 import { Todo } from './types/Todo';
 import cn from 'classnames';
 import { TodoStatus } from './types/TodoStatus';
+import { TodoErrors } from './types/TodoErrors';
+import { Footer } from './components/Footer';
 
 function getFilteredTodos(
   todos: Todo[],
@@ -15,10 +17,15 @@ function getFilteredTodos(
 ): Todo[] {
   let filteredTodos = [...todos];
 
-  if (status === TodoStatus.Active) {
-    filteredTodos = filteredTodos.filter(todo => todo.completed === false);
-  } else if (status === TodoStatus.Completed) {
-    filteredTodos = filteredTodos.filter(todo => todo.completed === true);
+  switch (status) {
+    case TodoStatus.Active:
+      filteredTodos = filteredTodos.filter(todo => todo.completed === false);
+      break;
+    case TodoStatus.Completed:
+      filteredTodos = filteredTodos.filter(todo => todo.completed === true);
+      break;
+    default:
+      break;
   }
 
   return filteredTodos;
@@ -36,7 +43,9 @@ export const App: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function hideErrorMessage() {
+  function showErrorMessageWithAutoHide(errorText: string) {
+    setErrorMessage(errorText);
+
     setTimeout(() => {
       setErrorMessage('');
     }, 3000);
@@ -47,26 +56,27 @@ export const App: React.FC = () => {
     getTodos()
       .then(todosFromServer => {
         setTodos(todosFromServer);
-        setCompletedTodos(
-          todosFromServer.filter(todo => todo.completed === true),
-        );
+        setCompletedTodos(todosFromServer.filter(todo => todo.completed));
       })
       .catch(() => {
-        setErrorMessage('Unable to load todos');
-        hideErrorMessage();
+        showErrorMessageWithAutoHide(TodoErrors.UnableLoadError);
       });
   }, []);
 
-  const handleStatusAll = () => {
-    setStatus(TodoStatus.All);
-  };
-
-  const handleStatusActive = () => {
-    setStatus(TodoStatus.Active);
-  };
-
-  const handleStatusComplete = () => {
-    setStatus(TodoStatus.Completed);
+  const handleStatus = (status: TodoStatus) => {
+    switch (status) {
+      case TodoStatus.All:
+        setStatus(TodoStatus.All);
+        break;
+      case TodoStatus.Active:
+        setStatus(TodoStatus.Active);
+        break;
+      case TodoStatus.Completed:
+        setStatus(TodoStatus.Completed);
+        break;
+      default:
+        break;
+    }
   };
 
   const handleSetTodoTitle = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,12 +90,11 @@ export const App: React.FC = () => {
     }
   }, [isDisabled]);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleTodoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (todoTitle === '') {
-      setErrorMessage('Title should not be empty');
-      hideErrorMessage();
+      showErrorMessageWithAutoHide(TodoErrors.TitleError);
     }
 
     if (todoTitle !== '') {
@@ -109,8 +118,7 @@ export const App: React.FC = () => {
           setTodoTitle('');
         })
         .catch(() => {
-          setErrorMessage('Unable to add a todo');
-          hideErrorMessage();
+          showErrorMessageWithAutoHide(TodoErrors.UnableAddError);
         })
         .finally(() => {
           setLoadingTodos(currentTodos => currentTodos.filter(id => id !== 0));
@@ -131,8 +139,7 @@ export const App: React.FC = () => {
         );
       })
       .catch(() => {
-        setErrorMessage('Unable to delete a todo');
-        hideErrorMessage();
+        showErrorMessageWithAutoHide(TodoErrors.UnableDeleteError);
       })
       .finally(() => {
         setIsDisabled(false);
@@ -159,8 +166,7 @@ export const App: React.FC = () => {
             );
           })
           .catch(() => {
-            setErrorMessage('Unable to delete a todo');
-            hideErrorMessage();
+            showErrorMessageWithAutoHide(TodoErrors.UnableDeleteError);
           })
           .finally(() => {
             setIsDisabled(false);
@@ -189,7 +195,7 @@ export const App: React.FC = () => {
           />
 
           {/* Add a todo on form submit */}
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleTodoSubmit}>
             <input
               data-cy="NewTodoField"
               type="text"
@@ -209,62 +215,17 @@ export const App: React.FC = () => {
               todos={preparedTodos}
               tempTodo={tempTodo}
               loadingTodos={loadingTodos}
-              OnLoadingTodos={setLoadingTodos}
-              OnHandleDeleteTodo={handleDeleteTodo}
+              onLoadingTodos={setLoadingTodos}
+              onHandleDeleteTodo={handleDeleteTodo}
             />
 
-            <footer className="todoapp__footer" data-cy="Footer">
-              <span className="todo-count" data-cy="TodosCounter">
-                {todos.length - completedTodos.length} items left
-              </span>
-
-              {/* Active link should have the 'selected' class */}
-              <nav className="filter" data-cy="Filter">
-                <a
-                  href="#/"
-                  className={cn('filter__link', {
-                    selected: status === TodoStatus.All,
-                  })}
-                  data-cy="FilterLinkAll"
-                  onClick={handleStatusAll}
-                >
-                  All
-                </a>
-
-                <a
-                  href="#/active"
-                  className={cn('filter__link', {
-                    selected: status === TodoStatus.Active,
-                  })}
-                  data-cy="FilterLinkActive"
-                  onClick={handleStatusActive}
-                >
-                  Active
-                </a>
-
-                <a
-                  href="#/completed"
-                  className={cn('filter__link', {
-                    selected: status === TodoStatus.Completed,
-                  })}
-                  data-cy="FilterLinkCompleted"
-                  onClick={handleStatusComplete}
-                >
-                  Completed
-                </a>
-              </nav>
-
-              {/* this button should be disabled if there are no completed todos */}
-              <button
-                type="button"
-                className="todoapp__clear-completed"
-                data-cy="ClearCompletedButton"
-                disabled={completedTodos.length <= 0}
-                onClick={handleDeleteCompletedTodo}
-              >
-                Clear completed
-              </button>
-            </footer>
+            <Footer
+              todos={todos}
+              completedTodos={completedTodos}
+              status={status}
+              onHandleStatus={handleStatus}
+              onHandleDeleteCompletedTodo={handleDeleteCompletedTodo}
+            />
           </>
         )}
       </div>
